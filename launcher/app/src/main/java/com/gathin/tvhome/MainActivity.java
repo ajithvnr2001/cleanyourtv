@@ -105,6 +105,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView greeting;
     private View btnInputs;
     private TextView btnWifi;
+    private View btnSettings;
     private TextView shamsiDate;
     private boolean shamsi;
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
@@ -147,6 +148,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean rebuildOnResume = true;
     /** The Inputs or Module cards dropdown while one is open, so onPause can close it. */
     private PopupWindow openPopup;
+    private boolean moving;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
@@ -352,7 +354,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         btnInputs = findViewById(R.id.btnInputs);
-        View btnSettings = findViewById(R.id.btnSettings);
+        btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnWifi.setOnLongClickListener(v -> {
@@ -470,6 +472,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (moving) setMoving(false);
         if (openLauncherSettingsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         grid.scrollToPosition(0);
@@ -588,6 +591,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        if (moving) setMoving(false);
         stopAmbientAnimation();
         heroName.animate().cancel();
         ambient.animate().cancel();
@@ -625,7 +629,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onBackPressed() {
+        if (moving) setMoving(false);
         // Home screen: Back goes nowhere.
+    }
+
+    @Override
+    public boolean onTileClick(int position) {
+        if (!moving) return false;
+        setMoving(false);
+        return true;
+    }
+
+    @Override
+    public void onTileLongClick(int position, String pkg) {
+        setMoving(!moving);
+    }
+
+    private void setMoving(boolean m) {
+        if (moving == m) return;
+        moving = m;
+        adapter.setMoving(m);
+        btnInputs.setFocusable(!m);
+        btnWifi.setFocusable(!m);
+        btnSettings.setFocusable(!m);
+        updateGreeting();
+        adapter.updateMovedHolder(grid, lastFocused);
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(lastFocused);
+        if (vh != null) onTileFocused(lastFocused, vh.itemView.findViewById(R.id.card));
     }
 
     // ---- glass highlight -------------------------------------------------------------------------
@@ -833,6 +863,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public boolean onTileVerticalKey(int position, int keyCode) {
+        if (moving) {
+            int moveTarget;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) moveTarget = rtlAppGrid ? position + 1 : position - 1;
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) moveTarget = rtlAppGrid ? position - 1 : position + 1;
+            else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) moveTarget = position - COLUMNS;
+            else moveTarget = position + COLUMNS;
+            if (adapter.isMovable(moveTarget)) {
+                lastFocused = moveTarget;
+                adapter.swapItems(grid, position, moveTarget);
+                lastFocusedKey = adapter.keyAt(moveTarget);
+                grid.post(() -> focusTile(moveTarget));
+                grid.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
+            }
+            return true;
+        }
         int count = adapter.getItemCount();
         int target;
         // Horizontal: swallow the key at a row's ends so focus never wraps to the next row or
@@ -897,6 +942,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top bar ---------------------------------------------------------------------------------
 
     private void updateGreeting() {
+        if (moving) {
+            greeting.setText("MOVE APP \u00B7 \u25C4 \u25B2 \u25BC \u25BA \u00B7 OK DONE");
+            greeting.setTextColor(0xFFFFD54F);
+            return;
+        }
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         int res;
         if (hour < 5) res = R.string.good_night;

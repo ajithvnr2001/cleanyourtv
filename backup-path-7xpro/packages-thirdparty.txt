@@ -1,0 +1,15 @@
+﻿package:org.smarttube.stable
+package:com.alphainventor.filemanager
+package:com.sonyliv
+package:com.mubi
+package:in.startv.hotstar
+package:com.mxtech.videoplayer.ad
+package:com.teamsmart.videomanager.tv
+package:com.nordvpn.android
+package:com.graymatrix.did
+package:org.videolan.vlc
+package:com.htlabs.ottplay
+package:com.yablio.sendfilestotv
+package:com.tubitv
+package:com.esaba.downloader
+package:com.discoveryplus.tv.android

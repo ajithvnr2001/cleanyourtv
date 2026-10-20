@@ -52,6 +52,13 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
         /** Called for a D-pad direction key on a tile. Return true when handled (focus stays put). */
         boolean onTileVerticalKey(int position, int keyCode);
+
+        default boolean onTileClick(int position) {
+            return false;
+        }
+
+        default void onTileLongClick(int position, String pkg) {
+        }
     }
 
     static final class Entry {
@@ -126,6 +133,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     /** Calmer motion for weak GPUs (config.xml, reduced_motion): no overshoot, shorter fades. */
     private final boolean reducedMotion;
     private final List<Entry> items = new ArrayList<>();
+    private boolean moving;
 
     AppAdapter(Context ctx, TileListener listener, int dockSize, Config cfg) {
         this.ctx = ctx;
@@ -171,7 +179,17 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                 fresh.add(new Entry(Cards.cleanLabel(String.valueOf(ri.loadLabel(pm)), pkg), component, banner, icon));
             }
         }
+        List<String> savedOrder = loadSavedOrder();
         Collections.sort(fresh, (a, b) -> {
+            if (!savedOrder.isEmpty()) {
+                int sa = savedOrder.indexOf(a.component.flattenToShortString());
+                int sb = savedOrder.indexOf(b.component.flattenToShortString());
+                if (sa >= 0 || sb >= 0) {
+                    if (sa < 0) return 1;
+                    if (sb < 0) return -1;
+                    return Integer.compare(sa, sb);
+                }
+            }
             int fa = favourites.indexOf(a.pkg), fb = favourites.indexOf(b.pkg);
             if (fa >= 0 || fb >= 0) {
                 if (fa < 0) return 1;
@@ -190,8 +208,12 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
                     new ComponentName(ctx, HomeSettingsActivity.class), null,
                     ctx.getDrawable(R.drawable.ic_home_settings), null, 0));
         }
-        docked = 0;
-        while (docked < fresh.size() && favourites.contains(fresh.get(docked).pkg)) docked++;
+        if (!savedOrder.isEmpty()) {
+            docked = Math.min(dockSize, fresh.size());
+        } else {
+            docked = 0;
+            while (docked < fresh.size() && favourites.contains(fresh.get(docked).pkg)) docked++;
+        }
         emptySlots = DockSlots.empty(docked, dockSize, fresh.size(), fillDock);
         for (int i = 0; i < emptySlots; i++) {
             fresh.add(docked + i, new Entry(Entry.EMPTY, "", new ComponentName(ctx, "empty-dock-slot-" + i),
@@ -252,11 +274,14 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.card.setOnLongClickListener(null);
             return;
         }
+        h.card.animate().cancel();
+        h.banner.animate().cancel();
+        h.name.animate().cancel();
         h.card.setVisibility(View.VISIBLE);
         h.card.setFocusable(true);
-        h.name.setText(e.name);
-        h.name.setVisibility(position < dockSize ? View.INVISIBLE : View.VISIBLE);   // the dock has no labels
         boolean focused = h.card.isFocused();   // a rebind after reload() can hit the focused tile
+        h.name.setText(moving && focused ? "\u25C4 \u25B2 \u25BC \u25BA " + e.name : e.name);
+        h.name.setVisibility(position < dockSize ? View.INVISIBLE : View.VISIBLE);   // the dock has no labels
         h.name.setAlpha(focused ? 1f : 0f);
         h.card.setScaleX(focused && animations ? focusScale() : 1f);
         h.card.setScaleY(focused && animations ? focusScale() : 1f);
@@ -277,13 +302,15 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             h.label.setText(e.label);
             h.label.setVisibility(View.VISIBLE);
         }
-        h.card.setOnClickListener(v -> launch(e));
+        h.card.setOnClickListener(v -> {
+            int pos = h.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION && listener.onTileClick(pos)) return;
+            launch(e);
+        });
         h.card.setOnLongClickListener(v -> {
-            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg));
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            try {
-                ctx.startActivity(i);
-            } catch (ActivityNotFoundException ignored) {
+            int pos = h.getBindingAdapterPosition();
+            if (listener != null && pos != RecyclerView.NO_POSITION) {
+                listener.onTileLongClick(pos, e.pkg);
             }
             return true;
         });
@@ -345,7 +372,59 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     }
 
     String labelAt(int position) {
-        return position >= 0 && position < items.size() ? items.get(position).label : "";
+        if (position < 0 || position >= items.size()) return "";
+        String lbl = items.get(position).label;
+        return moving ? "\u25C4 \u25B2 \u25BC \u25BA  " + lbl : lbl;
+    }
+
+    void setMoving(boolean moving) {
+        this.moving = moving;
+    }
+
+    boolean isMovable(int pos) {
+        return pos >= 0 && pos < items.size() && items.get(pos).kind != Entry.EMPTY;
+    }
+
+    void swapItems(RecyclerView grid, int from, int to) {
+        if (!isMovable(from) || !isMovable(to) || from == to) return;
+        RecyclerView.ViewHolder vf = grid.findViewHolderForAdapterPosition(from);
+        if (vf != null && (to / dockSize) != (from / dockSize)) {
+            int step = vf.itemView.getHeight();
+            grid.scrollBy(0, to > from ? step : -step);
+        }
+        Collections.swap(items, from, to);
+        saveOrder();
+        notifyDataSetChanged();
+    }
+
+    void updateMovedHolder(RecyclerView grid, int pos) {
+        if (pos < 0 || pos >= items.size()) return;
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(pos);
+        if (!(vh instanceof Holder)) return;
+        Holder h = (Holder) vh;
+        Entry e = items.get(pos);
+        boolean focused = h.card.isFocused();
+        h.name.setText(moving && focused ? "\u25C4 \u25B2 \u25BC \u25BA " + e.name : e.name);
+        h.name.setVisibility(pos < dockSize ? View.INVISIBLE : View.VISIBLE);
+        h.name.setAlpha(focused ? 1f : 0f);
+    }
+
+    private List<String> loadSavedOrder() {
+        String raw = ctx.getSharedPreferences(Config.SETTINGS_NAME, Context.MODE_PRIVATE)
+                .getString("app_order", "");
+        if (raw == null || raw.isEmpty()) return Collections.emptyList();
+        return Arrays.asList(raw.split(","));
+    }
+
+    private void saveOrder() {
+        StringBuilder sb = new StringBuilder();
+        for (Entry e : items) {
+            if (e.kind == Entry.EMPTY) continue;
+            if (sb.length() > 0) sb.append(',');
+            sb.append(e.component.flattenToShortString());
+        }
+        ctx.getSharedPreferences(Config.SETTINGS_NAME, Context.MODE_PRIVATE)
+                .edit().putString("app_order", sb.toString()).apply();
     }
 
     float focusScale() {
@@ -416,6 +495,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         final boolean animations;
         final boolean advancedEffects;
         final boolean reducedMotion;
+        boolean longPressed;
 
         Holder(View v, TileListener listener, boolean animations, boolean advancedEffects,
                boolean reducedMotion) {
@@ -440,11 +520,39 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             card.setClipToOutline(true);
 
             card.setOnKeyListener((view, keyCode, event) -> {
+                int pos = getBindingAdapterPosition();
+                if (pos == RecyclerView.NO_POSITION || listener == null) return false;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                        if (event.getRepeatCount() == 0) {
+                            longPressed = false;
+                        } else if (!longPressed) {
+                            longPressed = true;
+                            view.performLongClick();
+                        }
+                        return true;
+                    }
+                    if (event.getAction() == KeyEvent.ACTION_UP) {
+                        if (!longPressed) {
+                            if (event.getEventTime() - event.getDownTime() >= 450) {
+                                view.performLongClick();
+                            } else {
+                                view.performClick();
+                            }
+                        }
+                        longPressed = false;
+                        return true;
+                    }
+                    return false;
+                }
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == KeyEvent.KEYCODE_MENU && event.getRepeatCount() == 0) {
+                    view.performLongClick();
+                    return true;
+                }
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN
                         && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
-                int pos = getBindingAdapterPosition();
-                return listener != null && pos != RecyclerView.NO_POSITION && listener.onTileVerticalKey(pos, keyCode);
+                return listener.onTileVerticalKey(pos, keyCode);
             });
 
             card.setOnFocusChangeListener((view, focused) -> {
