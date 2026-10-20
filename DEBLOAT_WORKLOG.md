@@ -24,7 +24,13 @@ This document records **every single step, command, package modification, storag
 |---|---|
 | ![4-Way App Move Mode Active](examples/sppl-path-7xpro/screenshots/move-mode.png) | ![App Order Saved After Move Mode](examples/sppl-path-7xpro/screenshots/move-done.png) |
 
-### 1.4 Progressive Debloat Verification Screenshots
+### 1.4 Brave Browser (`v1.80.126`) Sideloaded on Home Screen & Running in 16:9 Landscape
+
+| Home Screen with Sideloaded Brave Browser (`8` Apps in 2×4 Grid) | Brave Browser (`v1.80.126`) Running in Full 16:9 `1280×720` Landscape |
+|---|---|
+| ![Home Screen with Brave Browser](examples/sppl-path-7xpro/screenshots/home-brave.png) | ![Brave Browser Running in 16:9 Landscape](examples/sppl-path-7xpro/screenshots/brave-running.png) |
+
+### 1.5 Progressive Debloat Verification Screenshots
 
 | Batch 1 (Telemetry & Factory Tests Disabled) | Batch 2 (Sponsored Rows & Recommendations Disabled) | Batch 3 (Unused System Providers & Duplicate Apps Disabled) |
 |---|---|---|
@@ -39,8 +45,9 @@ This document records **every single step, command, package modification, storag
 | **Available RAM (of `1,014 MB`)** | **`279 MB`** (`MemFree: 36 MB`) | **`563 MB`** (`MemFree: 311 MB`) | **+284 MB RAM freed (`2.02×` available RAM, `55.5%` of total RAM free)** |
 | **Free Storage (`/data` of `4.2 GB`)** | `3.7 GB` used / **`516 MB` free (`89%` full)** | `1.9 GB` used / **`2.2 GB` free (`47%` used)** | **+1.7 GB freed (`4.3×` more free space)** |
 | **System Bloatware Packages** | `0` disabled (`102` packages active) | **`42` system bloat & telemetry packages disabled** | Stripped `/data/app` updates & wiped `/data/data` caches |
-| **Third-Party Apps** | `14` third-party apps + `458 MB` leftover APKs | **`11` redundant apps uninstalled** | Only **7 essential apps** remain (fits on 1 single screen) |
+| **Third-Party Apps** | `14` third-party apps + `458 MB` leftover APKs | **`11` redundant apps uninstalled + Brave Browser (`v1.80.126`) added** | Only **8 essential apps** remain (clean 2×4 single-screen grid) |
 | **SmartTube (`org.smarttube.stable`)** | `v32.10` (`universal` APK) | **`v32.56 Stable` (`armeabi-v7a` native)** | Upgraded to latest architecture-matched build |
+| **Brave Browser (`com.brave.browser`)** | Not installed | **`v1.80.126` (`BraveMonoarm.apk`, Chromium 138)** | Final official Android 9 (`SDK 28`, `armeabi-v7a`) release; runs in 16:9 landscape |
 | **App Runtime Compilation (`dex2oat`)** | Interpreted / partial profile | **`cmd package compile -m speed -f`** | **100% AOT native ARM machine code** for instant cold starts |
 | **UI Animation Scales** | `1.0x` (stock) | **`0.5x`** (`window`, `transition`, `animator`) | **2× snappier UI transitions** |
 | **App Reordering in Launcher** | Static XML order only | **4-Way D-Pad Move Mode (`◀ ▲ ▼ ▶`)** | Hold `OK` on any tile → move `Left/Right/Up/Down` → `OK` to save |
@@ -179,16 +186,17 @@ Every package below was disabled (`pm disable-user --user 0`), force-stopped (`a
    - Downloaded `SmartTube_stable_32.56_armeabi-v7a.apk` from [`yuliskov/SmartTube`](https://github.com/yuliskov/SmartTube/releases/tag/32.56s) and installed via `pm install -r`.
    - Replaced the `v32.10` `universal` APK (which bundled unused `arm64-v8a` and `x86` native libraries) with the native 32-bit `armeabi-v7a` APK matching the TV's Cortex-A53 CPU.
 
-#### Final 7 Essential Apps Remaining on the TV
+#### Final 8 Essential Apps Remaining on the TV (2×4 Layout)
 | Position | App Name | Package Name | Section |
 |---|---|---|---|
-| **1** | **SmartTube (`v32.56 Stable`)** | `org.smarttube.stable` | Dock (Row 1, Col 1) |
-| **2** | **YouTube Music** | `com.google.android.youtube.tvmusic` | Dock (Row 1, Col 2) |
-| **3** | **YouTube** | `com.google.android.youtube.tv` | Dock (Row 1, Col 3) |
-| **4** | **VLC** | `org.videolan.vlc` | Dock (Row 1, Col 4) |
+| **1** | **YouTube** | `com.google.android.youtube.tv` | Dock (Row 1, Col 1) |
+| **2** | **SmartTube (`v32.56 Stable`)** | `org.smarttube.stable` | Dock (Row 1, Col 2) |
+| **3** | **VLC** | `org.videolan.vlc` | Dock (Row 1, Col 3) |
+| **4** | **NordVPN** | `com.nordvpn.android` | Dock (Row 1, Col 4) + Top-Bar `VPN` Pill |
 | **5** | **JioHotstar** | `in.startv.hotstar` | Grid (Row 2, Col 1) |
-| **6** | **NordVPN** | `com.nordvpn.android` | Grid (Row 2, Col 2) + Top-Bar `VPN` Pill |
+| **6** | **YouTube Music** | `com.google.android.youtube.tvmusic` | Grid (Row 2, Col 2) |
 | **7** | **Google Play Store** | `com.android.vending` | Grid (Row 2, Col 3) |
+| **8** | **Brave Browser (`v1.80.126`)** | `com.brave.browser` | Grid (Row 2, Col 4) |
 
 ### Step 6: Deep CPU (`dex2oat -m speed`), Background RAM (`RUN_IN_BACKGROUND`) & System Settings Tuning
 1. **AOT Native Machine Code Compilation (`cmd package compile -m speed -f`):**
@@ -214,6 +222,18 @@ Modified two core Java files in the custom launcher so any app can be moved **Le
 2. **[`launcher/app/src/main/java/com/gathin/tvhome/MainActivity.java`](launcher/app/src/main/java/com/gathin/tvhome/MainActivity.java):**
    - Added `loadSavedOrder()` and `saveAppOrder(List<AppEntry>)` to persist the custom app sequence in `SharedPreferences` (`settings.xml` → `app_order`).
    - Updated `onMoveStateChanged(boolean moving, AppEntry entry)` to lock focus away from the top-bar buttons (`inputsBtn`, `netBtn`, `settingsBtn`) while Move Mode is active so pressing **D-Pad Up** on Row 1 never escapes the app grid, and to display `MOVE APP · ◀ ▲ ▼ ▶ · OK DONE` in gold in the top bar.
+
+### Step 8: Installing Brave Browser (`com.brave.browser` `v1.80.126`) & Enabling `CATEGORY_LAUNCHER` Sideload Support
+1. **Identified the Final Official Android 9 (`SDK 28`, `armeabi-v7a`) Brave Release:**
+   - Inspected `AndroidManifest.xml` across [`brave/brave-browser`](https://github.com/brave/brave-browser/releases/tag/v1.80.126) releases and verified that Brave `v1.81+` (Chromium 139+) bumped `minSdkVersion` to `29` (Android 10+), causing `INSTALL_FAILED_OLDER_SDK` on Android TV 9 (`SDK 28`).
+   - Verified that **Brave `v1.80.126` (`BraveMonoarm.apk`, Chromium 138.0.7204.184, `minSdkVersion=26`, `armeabi-v7a`)** is the newest official release compatible with 32-bit ARMv7 Android 9 devices.
+2. **Enhanced `AppAdapter.java` (`reload()`) to Display Sideloaded `CATEGORY_LAUNCHER` Apps:**
+   - Because standard mobile/tablet builds like `com.brave.browser` declare `android.intent.category.LAUNCHER` rather than `android.intent.category.LEANBACK_LAUNCHER`, updated `AppAdapter.reload()` in [`launcher/app/src/main/java/com/gathin/tvhome/AppAdapter.java`](launcher/app/src/main/java/com/gathin/tvhome/AppAdapter.java) to query `Intent.CATEGORY_LAUNCHER` and automatically include non-system (`FLAG_SYSTEM == 0`) sideloaded apps on the custom Home screen.
+   - Rebuilt and installed `com.gathin.tvhome` so **Brave** appears as tile #8 (Row 2, Col 4) in a clean 2×4 layout.
+3. **Configured Brave for 16:9 Landscape & Zero Background RAM:**
+   - Completed first-run onboarding (`WelcomeOnboardingActivity`) with crash reporting and P3A telemetry unchecked.
+   - Locked `settings put system accelerometer_rotation 0` and `settings put system user_rotation 0` so `com.brave.browser/com.google.android.apps.chrome.Main` runs in full `1280×720` 16:9 landscape.
+   - Restricted background wakeups (`cmd appops set com.brave.browser RUN_IN_BACKGROUND ignore`) so Brave consumes zero RAM when closed.
 
 ---
 
