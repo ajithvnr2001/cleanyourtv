@@ -1,4 +1,4 @@
-﻿package:com.droidlogic.tvinput
+package:com.droidlogic.tvinput
 package:com.ctv.photoplayer
 package:com.android.cts.priv.ctsshim
 package:com.google.android.ext.services

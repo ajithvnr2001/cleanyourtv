@@ -1,4 +1,4 @@
-﻿[camera.disable_zsl_mode]: [1]
+[camera.disable_zsl_mode]: [1]
 [config.disable_bluetooth]: [false]
 [dalvik.vm.appimageformat]: [lz4]
 [dalvik.vm.dex2oat-Xms]: [64m]

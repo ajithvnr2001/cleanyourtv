@@ -1,4 +1,4 @@
-﻿accessibility_display_inversion_enabled=null
+accessibility_display_inversion_enabled=null
 accessibility_display_magnification_enabled=0
 accessibility_display_magnification_scale=2.0
 accessibility_enabled=0

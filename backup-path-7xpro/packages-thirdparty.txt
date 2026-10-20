@@ -1,4 +1,4 @@
-﻿package:org.smarttube.stable
+package:org.smarttube.stable
 package:com.alphainventor.filemanager
 package:com.sonyliv
 package:com.mubi

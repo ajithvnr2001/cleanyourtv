@@ -1,4 +1,4 @@
-﻿package:/product/app/DroidLogicTvInput/DroidLogicTvInput.apk=com.droidlogic.tvinput
+package:/product/app/DroidLogicTvInput/DroidLogicTvInput.apk=com.droidlogic.tvinput
 package:/system/app/PhotoPlayer/PhotoPlayer.apk=com.ctv.photoplayer
 package:/system/priv-app/CtsShimPrivPrebuilt/CtsShimPrivPrebuilt.apk=com.android.cts.priv.ctsshim
 package:/system/priv-app/GoogleExtServices/GoogleExtServices.apk=com.google.android.ext.services

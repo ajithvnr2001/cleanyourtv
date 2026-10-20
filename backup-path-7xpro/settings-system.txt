@@ -1,4 +1,4 @@
-﻿accelerometer_rotation=0
+accelerometer_rotation=0
 alarm_alert=content://media/internal/audio/media/30
 alarm_alert_set=1
 all_channels_number=0
