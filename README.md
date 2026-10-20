@@ -76,10 +76,6 @@ Complete, reproducible end-to-end documentation and visual proof for debloating,
 |---|---|
 | ![4-Way App Move Mode Active](examples/sppl-path-7xpro/screenshots/move-mode.png) | ![App Order Saved After Move Mode](examples/sppl-path-7xpro/screenshots/move-done.png) |
 
-| Home Screen with Sideloaded Brave Browser (`8` Apps in 2×4 Grid) | Brave Browser (`v1.80.126`) Running in Full 16:9 `1280×720` Landscape |
-|---|---|
-| ![Home Screen with Brave Browser](examples/sppl-path-7xpro/screenshots/home-brave.png) | ![Brave Browser Running in 16:9 Landscape](examples/sppl-path-7xpro/screenshots/brave-running.png) |
-
 | Batch 1 (Telemetry & Factory Tests Disabled) | Batch 2 (Sponsored Rows & Recommendations Disabled) | Batch 3 (Unused System Providers & Duplicate Apps Disabled) |
 |---|---|---|
 | ![Batch 1 Verification](examples/sppl-path-7xpro/screenshots/batch1.png) | ![Batch 2 Verification](examples/sppl-path-7xpro/screenshots/batch2.png) | ![Batch 3 Verification](examples/sppl-path-7xpro/screenshots/batch3.png) |
@@ -91,9 +87,8 @@ Complete, reproducible end-to-end documentation and visual proof for debloating,
 | **Available RAM (of `1,014 MB`)** | **`279 MB`** (`MemFree: 36 MB`) | **`563 MB`** (`MemFree: 311 MB`) | **+284 MB RAM freed (`2.02×` available RAM, `55.5%` of total RAM free)** |
 | **Free Storage (`/data` of `4.2 GB`)** | `3.7 GB` used / **`516 MB` free (`89%` full)** | `1.9 GB` used / **`2.2 GB` free (`47%` used)** | **+1.7 GB freed (`4.3×` more free space)** |
 | **System Bloatware Packages** | `0` disabled (`102` packages active) | **`42` system bloat & telemetry packages disabled** | Stripped `/data` updates & wiped package caches |
-| **Third-Party Apps** | `14` third-party apps + `458 MB` leftover APKs | **`11` redundant apps uninstalled + Brave Browser (`v1.80.126`) added** | Only **8 essential apps** remain (clean 2×4 single-screen grid) |
+| **Third-Party Apps** | `14` third-party apps + `458 MB` leftover APKs | **`11` redundant apps uninstalled** | Only **7 essential apps** remain (fits on 1 screen) |
 | **SmartTube (`org.smarttube.stable`)** | `v32.10` (`universal` APK) | **`v32.56 Stable` (`armeabi-v7a` native)** | Upgraded to latest architecture-matched build |
-| **Brave Browser (`com.brave.browser`)** | Not installed | **`v1.80.126` (`BraveMonoarm.apk`, Chromium 138)** | Final official Android 9 (`SDK 28`, `armeabi-v7a`) release; runs in 16:9 landscape |
 | **App Runtime Compilation (`dex2oat`)** | Interpreted / partial profile | **`cmd package compile -m speed -f`** | **100% AOT native ARM machine code** for instant cold starts |
 | **UI Animation Scales** | `1.0x` (stock) | **`0.5x`** (`window`, `transition`, `animator`) | **2× snappier UI transitions** |
 | **App Reordering in Launcher** | Static XML order only | **4-Way D-Pad Move Mode (`◀ ▲ ▼ ▶`)** | Hold `OK` on any tile → move `Left/Right/Up/Down` → `OK` to save |
@@ -138,7 +133,6 @@ Modified [`launcher/app/src/main/java/com/gathin/tvhome/AppAdapter.java`](launch
   - Enabled `setHasStableIds(true)` on `AppAdapter` (keyed by component name hash) and used `notifyDataSetChanged()` with pre-scrolling (`grid.scrollToPosition(to)`) so `RecyclerView` re-lays out cross-row (`Up`/`Down`) and same-row (`Left`/`Right`) swaps across the Dock divider without losing D-pad focus.
   - Temporarily disabled focusability on the top-bar pills (`Inputs`, `VPN`, `Settings`) while `moving == true` so pressing **D-Pad Up** on Row 1 never escapes the app grid.
 - **Persistent Storage:** Saved immediately to `SharedPreferences` (`settings.xml` → `app_order`) as a comma-separated component list so custom order survives app reloads and TV reboots.
-- **Sideloaded Non-Leanback App Support (`CATEGORY_LAUNCHER`):** Updated `AppAdapter.reload()` to automatically include non-system (`FLAG_SYSTEM == 0`) apps that only declare `android.intent.category.LAUNCHER` (such as **Brave Browser**) alongside standard `CATEGORY_LEANBACK_LAUNCHER` Android TV apps.
 
 #### Phase 4 — 42 System Bloatware, Telemetry & Background Packages Disabled ([`examples/sppl-path-7xpro/debloat.txt`](examples/sppl-path-7xpro/debloat.txt))
 All 42 packages below were disabled via `pm disable-user --user 0`, force-stopped (`am force-stop`), stripped of `/data/app` Play Store updates (`pm uninstall --user 0` on updated system apps to reclaim `/data` storage blocks), and wiped of `/data/data` caches (`pm clear`):
@@ -158,12 +152,9 @@ All 42 packages below were disabled via `pm disable-user --user 0`, force-stoppe
    - Moved all user `.srt` subtitle files safely to `/sdcard/Subtitles/` and deleted all leftover `.apk`, `.apkm`, `.zip` (`mx_aio.zip`), and orphaned `/sdcard/Android/data/` directories.
 3. **Upgraded SmartTube (`org.smarttube.stable`) to `v32.56 Stable` (`armeabi-v7a`):**
    - Downloaded and installed `SmartTube_stable_32.56_armeabi-v7a.apk` from [`yuliskov/SmartTube`](https://github.com/yuliskov/SmartTube/releases/tag/32.56s), replacing the bloated `universal` APK (`v32.10`) with the native 32-bit ARMv7 build.
-4. **Installed Brave Browser (`com.brave.browser` `v1.80.126` — `BraveMonoarm.apk`):**
-   - Verified `AndroidManifest.xml` across [`brave/brave-browser`](https://github.com/brave/brave-browser/releases/tag/v1.80.126) releases: Brave `v1.81+` (Chromium 139+) dropped Android 9 (`minSdkVersion=29`), making **`v1.80.126` (Chromium 138.0.7204.184, `minSdkVersion=26`, `armeabi-v7a`)** the final official release supporting Android TV 9 (`SDK 28`).
-   - Installed `BraveMonoarm.apk`, completed first-run onboarding with crash reporting & P3A telemetry unchecked, restricted background wakeups (`cmd appops set com.brave.browser RUN_IN_BACKGROUND ignore`), and locked `accelerometer_rotation=0` + `user_rotation=0` so Brave runs in full `1280×720` 16:9 landscape.
-5. **Final 8 Essential Apps Remaining on the TV (Clean 2×4 Single-Screen Layout):**
-   - **Dock (Row 1):** `YouTube`, `SmartTube (v32.56)`, `VLC`, `NordVPN` (also bound to top-bar `VPN` badge)
-   - **Grid (Row 2):** `JioHotstar`, `YouTube Music`, `Google Play Store`, `Brave Browser (v1.80.126)`
+4. **Final 7 Essential Apps Remaining on the TV (Fits on 1 Single Screen):**
+   - **Dock (Row 1):** `SmartTube (v32.56)`, `YouTube Music`, `YouTube`, `VLC`
+   - **Grid (Row 2):** `JioHotstar`, `NordVPN` (also bound to top-bar `VPN` badge), `Google Play Store`
 
 #### Phase 6 — Deep CPU (`dex2oat -m speed`), Background RAM (`RUN_IN_BACKGROUND`) & System Tuning
 1. **100% Native ARM AOT Compilation (`cmd package compile -m speed -f`):**
