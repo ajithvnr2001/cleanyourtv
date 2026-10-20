@@ -57,6 +57,7 @@ and a one-line restore if you change your mind.**
 
 Complete, reproducible end-to-end documentation and visual proof for debloating, cleaning, optimizing, and replacing the stock ad-heavy launcher on the **SPPL `PATH_7XPRO`** (`Kodak / Thomson 7XPRO Series`, `LEDTV32HD`, Android TV 9, Amlogic `AMLT950X`, 1 GB RAM).
 
+- **Complete Chronological Engineering Worklog:** [`DEBLOAT_WORKLOG.md`](DEBLOAT_WORKLOG.md)
 - **Full Engineering Report & Guide:** [`examples/sppl-path-7xpro/README.md`](examples/sppl-path-7xpro/README.md)
 - **Debloat Package List (42 System Packages):** [`examples/sppl-path-7xpro/debloat.txt`](examples/sppl-path-7xpro/debloat.txt)
 - **Initial Device Backup & One-Click Restore:** [`backup-path-7xpro/README.md`](backup-path-7xpro/README.md) · [`backup-path-7xpro/restore-all.ps1`](backup-path-7xpro/restore-all.ps1)
@@ -92,24 +93,78 @@ Complete, reproducible end-to-end documentation and visual proof for debloating,
 | **UI Animation Scales** | `1.0x` (stock) | **`0.5x`** (`window`, `transition`, `animator`) | **2× snappier UI transitions** |
 | **App Reordering in Launcher** | Static XML order only | **4-Way D-Pad Move Mode (`◀ ▲ ▼ ▶`)** | Hold `OK` on any tile → move `Left/Right/Up/Down` → `OK` to save |
 
-### 3. Summary of What Was Done End-to-End
+### 3. Target Hardware & Firmware Profile
 
-1. **42 System Bloatware, Telemetry & Background Services Disabled ([`examples/sppl-path-7xpro/debloat.txt`](examples/sppl-path-7xpro/debloat.txt)):**
-   - Disabled stock launchers (`com.google.android.tvlauncher`, `com.google.android.leanbacklauncher`), recommendation rows (`com.google.android.tvrecommendations`, `com.google.android.leanbacklauncher.recommendations`), Google Play Movies & TV (`com.google.android.videos`), Google Play Games (`com.google.android.play.games`), SmartConnectTV (`com.google.android.apps.nbu.smartconnect.tv`), telemetry/bug-report agents (`com.google.android.feedback`, `com.google.android.tv.bugreportsender`, `com.google.android.partnersetup`, `android.autoinstalls.config.amlogic.device`), factory test apps (`com.ctv.factorytest`, `com.tvfactory`, `com.cultraview.agingmodel`, `com.sppl.emanual`), unused phone/print/camera/calendar/contacts providers, TalkBack (`com.google.android.marvin.talkback`), Ambient Backdrop (`com.google.android.backdrop`), setup wizards (`com.google.android.tungsten.setupwraith`, `com.google.android.tvsetup.partnercustomizer`), cloud backup agents, and duplicate vendor media players.
-   - Uninstalled `/data/app` Play Store updates for all disabled system packages and cleared their `/data/data` caches.
-2. **11 Redundant Third-Party Apps Uninstalled & 458 MB of Installer Files Cleaned:**
-   - Removed `Downloader`, `File Manager +`, `Send Files to TV`, legacy `SmartTube` (`com.teamsmart.videomanager.tv`), `discovery+`, `MUBI`, `OTTplay`, `SonyLIV`, `Tubi`, `ZEE5`, and `MX Player`.
-   - Safely preserved all `.srt` subtitle files in `/sdcard/Subtitles/` and deleted **458 MB** of leftover `.apk`, `.apkm`, and `.zip` installer packages.
-   - Upgraded **SmartTube** (`org.smarttube.stable`) to **`v32.56 Stable` (`armeabi-v7a`)**.
-   - Kept only **7 total apps** across a single screen:
-     - **Dock (Row 1):** `SmartTube (v32.56)`, `YouTube Music`, `YouTube`, `VLC`
-     - **Grid (Row 2):** `JioHotstar`, `NordVPN` (linked to top-bar `VPN` status badge), `Google Play Store`
-3. **4-Way App Reordering (`Move Mode`) in `com.gathin.tvhome`:**
-   - **Hold `OK`** (or press `Menu`) on any app tile → top bar shows `MOVE APP · ◀ ▲ ▼ ▶ · OK DONE` → press **D-Pad Left / Right / Up / Down** to swap apps across the Dock and Grid → press **`OK`** or **`Back`** to save.
-4. **CPU, ART Runtime & Background RAM Optimizations:**
-   - Compiled all active apps with `cmd package compile -m speed -f` (100% native ARM machine code).
-   - Restricted background wakeups (`cmd appops set <pkg> RUN_IN_BACKGROUND ignore`) for Play Store (`com.android.vending`, saving ~109 MB RAM), JioHotstar, YouTube, YouTube Music, and VLC.
-   - Disabled background Wi-Fi/BLE scanning, Play Protect ADB install verification, and system dropbox/activity telemetry logging, and set UI animation scales to `0.5x`.
+| Property | Value |
+|---|---|
+| **Manufacturer / Brand** | `SPPL` (Super Plastronics Pvt Ltd — Kodak / Thomson 7XPRO Series, India) |
+| **Model / Device** | `PATH_7XPRO` / `LEDTV32HD` |
+| **SoC / Board** | Amlogic `AMLT950X` (`droidlogic`, 4× ARM Cortex-A53 @ `armeabi-v7a`) |
+| **Android Version** | Android TV 9 (Pie, SDK 28), Build `PI.20210601 release-keys` |
+| **Memory & Storage** | `1,014 MB` RAM (`1.5 GB` ZRAM swap) · `4.2 GB` `/data` partition |
+| **Stock Home Launcher** | `com.google.android.tvlauncher/.MainActivity` |
+| **New Home Launcher** | `com.gathin.tvhome/.MainActivity` (~300 KB native Java launcher) |
+| **Hardware Inputs Handler** | `com.android.tv` + `com.droidlogic.tvinput` (`HDMI1`, `HDMI2`, `HDMI3`, `AV1`, `AV2`, `Live TV`) |
+
+> **Firmware Quirk on `SPPL PATH_7XPRO`:** Turning on **USB debugging** in *Developer options* for the first time does not immediately open TCP port `5555` (`adbd`). Toggling **USB debugging OFF and back ON** (or rebooting the TV with USB debugging enabled) starts `adbd` on `:5555` over Wi-Fi.
+
+### 4. In-Depth Phase-by-Phase Breakdown of Everything Done
+
+#### Phase 1 — Local Wi-Fi Discovery (`192.168.29.239:5555`) & Full Baseline Backup ([`backup-path-7xpro/`](backup-path-7xpro/))
+1. Scanned the local `192.168.29.0/24` Wi-Fi subnet for open TCP port `5555` and discovered the TV at `192.168.29.239:5555`.
+2. Paired via `tools/tv.py` (pure-Python ADB implementation) and saved a complete, byte-accurate baseline snapshot to [`backup-path-7xpro/`](backup-path-7xpro/) before modifying a single setting:
+   - **Package Inventories:** [`packages-all.txt`](backup-path-7xpro/packages-all.txt) (`110` total packages), [`packages-enabled.txt`](backup-path-7xpro/packages-enabled.txt) (`109` enabled), [`packages-disabled.txt`](backup-path-7xpro/packages-disabled.txt) (`1` pre-disabled: `com.amazon.amazonvideo.livingroom`), [`packages-system.txt`](backup-path-7xpro/packages-system.txt) (`95` system packages), [`packages-thirdparty.txt`](backup-path-7xpro/packages-thirdparty.txt) (`15` third-party packages), [`packages-paths.txt`](backup-path-7xpro/packages-paths.txt).
+   - **System Properties & Settings:** [`getprop.txt`](backup-path-7xpro/getprop.txt), [`settings-global.txt`](backup-path-7xpro/settings-global.txt), [`settings-secure.txt`](backup-path-7xpro/settings-secure.txt), [`settings-system.txt`](backup-path-7xpro/settings-system.txt).
+   - **One-Click Rollback Script:** [`backup-path-7xpro/restore-all.ps1`](backup-path-7xpro/restore-all.ps1) to re-enable every disabled package, restore animations (`1.0`), and restore the stock launcher at any time.
+
+#### Phase 2 — Custom Apple TV-Style Launcher (`com.gathin.tvhome`) & Hardware Inputs Integration
+1. Configured [`launcher/app/src/main/res/values/config.xml`](launcher/app/src/main/res/values/config.xml):
+   - **Pinned Dock (`dock_apps`):** `org.smarttube.stable` (SmartTube), `com.google.android.youtube.tvmusic` (YouTube Music), `com.google.android.youtube.tv` (YouTube), `org.videolan.vlc` (VLC), with `fill_dock = true`.
+   - **Hidden System Entries (`hidden_apps`):** `com.android.tv`, `com.google.android.tv`, `com.droidlogic.tv.settings` (kept off the app grid because they are launched directly from the top-bar **Inputs** and **Settings** pills).
+   - **Hardware Input Switching (`live_tv_package`):** Bound to `com.android.tv` + Amlogic `com.droidlogic.tvinput`, exposing **`HDMI 1`**, **`HDMI 2`**, **`HDMI 3`**, **`AV 1`**, **`AV 2`**, and **`Live TV`** in the top-bar **Inputs** dropdown with live cable connection state detection.
+   - **VPN Pill Integration (`vpn_app`):** Bound to `com.nordvpn.android` so the top bar shows a live green **`VPN`** badge when NordVPN is connected or **`VPN off`** when disconnected, opening NordVPN on click (or Wi-Fi settings on long-press).
+2. Built the ~300 KB APK via [`launcher/build-and-install.ps1`](launcher/build-and-install.ps1), installed it onto the TV, set `com.gathin.tvhome/.MainActivity` as default `HOME`, and configured `com.gathin.tvhome/.ClockDream` as the default screensaver (`5 min` timeout).
+
+#### Phase 3 — 4-Way D-Pad App Reordering (`Move Mode`) Engineered & Verified on TV
+Modified [`launcher/app/src/main/java/com/gathin/tvhome/AppAdapter.java`](launcher/app/src/main/java/com/gathin/tvhome/AppAdapter.java) and [`launcher/app/src/main/java/com/gathin/tvhome/MainActivity.java`](launcher/app/src/main/java/com/gathin/tvhome/MainActivity.java) so apps can be reordered in all 4 directions (`Left`, `Right`, `Up`, `Down`) across the Dock and Grid using only the TV remote:
+- **How to Trigger:** Hold **`OK`** (`KEYCODE_DPAD_CENTER` / `KEYCODE_ENTER` ≥ 450 ms) or press **`Menu`** (`KEYCODE_MENU`) on any app tile.
+- **Visual Cues:** Top greeting bar switches to gold `MOVE APP · ◀ ▲ ▼ ▶ · OK DONE`, the focused app title displays `◀ ▲ ▼ ▶ <App Name>`, and the focused tile scales up (`1.18×`).
+- **4-Way D-Pad Swapping (`swapItems`):**
+  - Enabled `setHasStableIds(true)` on `AppAdapter` (keyed by component name hash) and used `notifyDataSetChanged()` with pre-scrolling (`grid.scrollToPosition(to)`) so `RecyclerView` re-lays out cross-row (`Up`/`Down`) and same-row (`Left`/`Right`) swaps across the Dock divider without losing D-pad focus.
+  - Temporarily disabled focusability on the top-bar pills (`Inputs`, `VPN`, `Settings`) while `moving == true` so pressing **D-Pad Up** on Row 1 never escapes the app grid.
+- **Persistent Storage:** Saved immediately to `SharedPreferences` (`settings.xml` → `app_order`) as a comma-separated component list so custom order survives app reloads and TV reboots.
+
+#### Phase 4 — 42 System Bloatware, Telemetry & Background Packages Disabled ([`examples/sppl-path-7xpro/debloat.txt`](examples/sppl-path-7xpro/debloat.txt))
+All 42 packages below were disabled via `pm disable-user --user 0`, force-stopped (`am force-stop`), stripped of `/data/app` Play Store updates (`pm uninstall --user 0` on updated system apps to reclaim `/data` storage blocks), and wiped of `/data/data` caches (`pm clear`):
+
+| Batch | Category | Packages Disabled (`42` Total) |
+|---|---|---|
+| **Batch 1 (10 pkgs)** | Telemetry, Analytics, Partner Auto-Installs & Factory Test Suites | `com.google.android.feedback`, `com.google.android.tv.bugreportsender`, `com.google.android.partnersetup`, `android.autoinstalls.config.amlogic.device`, `com.google.android.onetimeinitializer`, `com.android.onetimeinitializer`, `com.ctv.factorytest`, `com.tvfactory`, `com.cultraview.agingmodel`, `com.sppl.emanual` |
+| **Batch 2 (7 pkgs)** | Stock Launchers, Sponsored Ad Rows & Google Bloat | `com.google.android.tvlauncher`, `com.google.android.tvrecommendations`, `com.google.android.leanbacklauncher.recommendations`, `com.google.android.leanbacklauncher`, `com.google.android.videos` (Play Movies & TV), `com.google.android.play.games` (Play Games), `com.google.android.apps.nbu.smartconnect.tv` (SmartConnectTV) |
+| **Batch 3 (13 pkgs)** | Unused Phone/Print/Camera Providers, TalkBack & Vendor Media Duplicates | `com.android.printspooler`, `com.android.camera2`, `com.android.smspush`, `com.android.providers.calendar`, `com.google.android.syncadapters.calendar`, `com.android.providers.contacts`, `com.google.android.syncadapters.contacts`, `com.android.providers.userdictionary`, `com.android.dreams.basic`, `com.google.android.marvin.talkback` (`54 MB` reclaimed), `com.ctv.photoplayer`, `com.ctv.music`, `com.yunfang.files` |
+| **Batch 4 (12 pkgs)** | Setup Wizards, Ambient Backdrop, Cloud Backup & Duplicate TV Apps | `com.google.android.backdrop` (Ambient Mode), `com.google.android.tungsten.setupwraith`, `com.google.android.tvsetup.partnercustomizer`, `com.droidlogic.videoplayer`, `com.google.android.tv` (duplicate Live Channels), `com.android.wallpaperbackup`, `com.android.wallpapercropper`, `com.android.htmlviewer`, `com.android.backupconfirm`, `com.android.sharedstoragebackup`, `com.google.android.backuptransport`, `com.amazon.amazonvideo.livingroom` |
+
+#### Phase 5 — 11 Redundant Third-Party Apps Uninstalled, 458 MB of Leftover APKs Cleaned & SmartTube Upgraded
+1. **Uninstalled 11 redundant third-party apps (`pm uninstall`):**
+   - **Utility Apps Removed:** `com.esaba.downloader` (`Downloader`), `com.alphainventor.filemanager` (`File Manager +`), `com.yablio.sendfilestotv` (`Send Files to TV`), `com.teamsmart.videomanager.tv` (legacy SmartTube Next), `com.mxtech.videoplayer.ad` (`MX Player`).
+   - **Streaming Apps Removed (per user selection, keeping only JioHotstar):** `com.discoveryplus.tv.android` (`discovery+`), `com.mubi` (`MUBI`), `com.htlabs.ottplay` (`OTTplay`), `com.sonyliv` (`SonyLIV`), `com.tubitv` (`Tubi`), `com.graymatrix.did` (`ZEE5`).
+2. **Cleaned `458 MB` of Leftover Installer Packages in `/sdcard/Download` & `/sdcard/Downloader`:**
+   - Moved all user `.srt` subtitle files safely to `/sdcard/Subtitles/` and deleted all leftover `.apk`, `.apkm`, `.zip` (`mx_aio.zip`), and orphaned `/sdcard/Android/data/` directories.
+3. **Upgraded SmartTube (`org.smarttube.stable`) to `v32.56 Stable` (`armeabi-v7a`):**
+   - Downloaded and installed `SmartTube_stable_32.56_armeabi-v7a.apk` from [`yuliskov/SmartTube`](https://github.com/yuliskov/SmartTube/releases/tag/32.56s), replacing the bloated `universal` APK (`v32.10`) with the native 32-bit ARMv7 build.
+4. **Final 7 Essential Apps Remaining on the TV (Fits on 1 Single Screen):**
+   - **Dock (Row 1):** `SmartTube (v32.56)`, `YouTube Music`, `YouTube`, `VLC`
+   - **Grid (Row 2):** `JioHotstar`, `NordVPN` (also bound to top-bar `VPN` badge), `Google Play Store`
+
+#### Phase 6 — Deep CPU (`dex2oat -m speed`), Background RAM (`RUN_IN_BACKGROUND`) & System Tuning
+1. **100% Native ARM AOT Compilation (`cmd package compile -m speed -f`):**
+   - Compiled `com.gathin.tvhome`, `org.smarttube.stable`, `in.startv.hotstar`, `com.google.android.youtube.tv`, `com.google.android.youtube.tvmusic`, `org.videolan.vlc`, `com.nordvpn.android`, `com.android.tv.settings`, and `com.android.tv` ahead-of-time to eliminate JIT overhead on the quad-core Cortex-A53 CPU.
+2. **Background RAM & Wakeup Restriction (`cmd appops set <pkg> RUN_IN_BACKGROUND ignore`):**
+   - Applied to `com.android.vending` (Play Store — saved **~109 MB RAM**), `in.startv.hotstar`, `com.google.android.youtube.tv`, `com.google.android.youtube.tvmusic`, and `org.videolan.vlc`.
+3. **System Settings & Animation Tuning:**
+   - Set `window_animation_scale`, `transition_animation_scale`, and `animator_duration_scale` to `0.5`.
+   - Disabled background Wi-Fi/BLE scanning (`wifi_scan_always_enabled=0`, `ble_scan_always_enabled=0`), Play Protect install verification (`package_verifier_enable=0`, `verifier_verify_adb_installs=0`), and system error/activity telemetry (`activity_starts_logging_enabled=0`, `send_action_app_error=0`, `dropbox_max_files=10`).
+   - Trimmed all filesystem caches (`pm trim-caches 16G`).
 
 ---
 
